@@ -40,9 +40,34 @@ async function getGradioClient(){
 }
 function extractVideoUrl(result){
  const item=result?.data?.[0];
- if(typeof item==='string' && /^https?:\/\//.test(item))return item;
- if(item && typeof item==='object' && item.url)return item.url;
- throw new Error('Model ने video URL नहीं लौटाया। Space की API response जाँचनी होगी।');
+
+ // Gradio Video output is commonly returned as:
+ // { video: { path: "...", url: "https://..." }, subtitles: null }
+ const candidates=[
+  item?.video?.url,
+  item?.video,
+  item?.url,
+  item?.path,
+  item?.name,
+  item
+ ];
+
+ for(const candidate of candidates){
+  if(typeof candidate==='string' && /^https?:\/\//i.test(candidate))return candidate;
+  if(candidate && typeof candidate==='object'){
+   if(typeof candidate.url==='string' && /^https?:\/\//i.test(candidate.url))return candidate.url;
+   if(typeof candidate.path==='string' && /^https?:\/\//i.test(candidate.path))return candidate.path;
+  }
+ }
+
+ // Include the returned shape in the diagnostic, without exposing file contents.
+ const shape=item && typeof item==='object'
+  ? Object.keys(item).join(', ')
+  : typeof item;
+ const videoShape=item?.video && typeof item.video==='object'
+  ? Object.keys(item.video).join(', ')
+  : typeof item?.video;
+ throw new Error('Video output मिला, लेकिन playable URL नहीं मिला। Output keys: '+shape+'; video keys: '+videoShape+'.');
 }
 async function directGenerate(payload,file){
  showStatus('Hugging Face Space से कनेक्ट हो रहा है…','Connecting');
@@ -55,6 +80,71 @@ async function directGenerate(payload,file){
   const [height,width]=ratioDims[payload.aspect_ratio]||[384,672];
   const duration=Math.max(1,Math.min(Number(payload.duration)||2,8));
   const args=file
+   ? [prompt,negative,handle_file(file),null,height,width,'image-to-video',duration,9,42,true,3.0,false,false]
+   : [prompt,negative,null,null,height,width,'text-to-video',duration,9,42,true,3.0,false,false];
+  showStatus('AI model वीडियो बना रहा है। GPU queue के कारण समय लग सकता है…','Generating');
+  const result=await client.predict(file?'/image_to_video':'/text_to_video',args);
+  const videoUrl=extractVideoUrl(result);
+  const localId='direct-'+Date.now();
+  const url=videoUrl;
+  $('outputVideo').src=url;$('outputVideo').classList.remove('hidden');
+  $('download').href=url;$('download').classList.remove('hidden');
+  $('download').download='videocraft-ai.mp4';
+  addProject({job_id:localId,mode:payload.mode,prompt:payload.prompt,status:'Completed',video_url:url});
+  showStatus('AI वीडियो तैयार है।','Completed');
+ }catch(e){
+  showStatus('Generation नहीं हो पाई: '+(e?.message||String(e)),'Error');
+ }
+}
+
+$('clearProjects').onclick=()=>{if(confirm('सभी saved projects हटाएँ?'))save([])};
+$('sourceImage').onchange=()=>{$('imageName').textContent=$('sourceImage').files[0]?.name||''};
+function showStatus(msg,status='Working'){$('result').classList.remove('hidden');$('statusText').textContent=msg;$('status').textContent=status;$('outputVideo').classList.add('hidden');$('download').classList.add('hidden')}
+$('checkConnection').onclick=async()=>{
+ $('connectionStatus').textContent='GPU Space connection जाँचा जा रहा है…';
+ try{
+  if(api()){const r=await fetch(api()+'/api/health');if(!r.ok)throw new Error('HTTP '+r.status);const d=await r.json();$('connectionStatus').textContent='Backend online: '+(d.provider||'VideoCraft API')}
+  else{await getGradioClient();$('connectionStatus').textContent='Hugging Face GPU Space से connection बन गया। Generate request पर quota/queue लागू होगी.'}
+ }catch(e){$('connectionStatus').textContent='Connection नहीं हुआ: '+e.message}
+};
+async function submitJob(payload,file){
+ showStatus('Backend से संपर्क किया जा रहा है…');
+ if(!api()){directGenerate(payload,file);return}
+ try{
+  let res;
+  if(file){const fd=new FormData();Object.entries(payload).forEach(([k,v])=>fd.append(k,v));fd.append('image',file);res=await fetch(api()+'/api/generate/image',{method:'POST',body:fd})}
+  else{res=await fetch(api()+'/api/generate/text',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})}
+  const data=await res.json();if(!res.ok)throw new Error(data.detail||'Generation request failed');
+  addProject({job_id:data.job_id,mode:payload.mode,prompt:payload.prompt,status:'Queued'});
+  poll(data.job_id)
+ }catch(e){showStatus(e.message,'Error')}
+}
+async function poll(id){
+ for(let i=0;i<150;i++){
+  await new Promise(r=>setTimeout(r,4000));
+  try{
+   const r=await fetch(api()+'/api/jobs/'+encodeURIComponent(id));const d=await r.json();
+   showStatus(d.message||d.status,d.status);
+   if(d.status==='completed'&&d.video_url){
+    const url=d.video_url.startsWith('http')?d.video_url:api()+d.video_url;
+    $('outputVideo').src=url;$('outputVideo').classList.remove('hidden');$('download').href=url;$('download').classList.remove('hidden');
+    updateProject(id,{status:'Completed',video_url:d.video_url});return
+   }
+   if(d.status==='failed'){updateProject(id,{status:'Failed'});return}
+  }catch(e){showStatus('Status check में समस्या: '+e.message,'Error');return}
+ }
+ showStatus('अभी processing चल रही हो सकती है। कुछ देर बाद My Projects में जाँचें।','Still working')
+}
+$('generateText').onclick=()=>{
+ const prompt=$('prompt').value.trim();if(!prompt){alert('पहले video idea लिखो।');return}
+ submitJob({mode:'text',prompt,negative_prompt:$('negativePrompt').value.trim(),aspect_ratio:$('ratio').value,duration:$('duration').value,style:$('style').value})
+};
+$('generateImage').onclick=()=>{
+ const prompt=$('imagePrompt').value.trim(),file=$('sourceImage').files[0];if(!prompt||!file){alert('Image और motion prompt दोनों चुनो।');return}
+ submitJob({mode:'image',prompt,negative_prompt:$('imageNegativePrompt').value.trim(),aspect_ratio:$('imageRatio').value,duration:$('imageDuration').value},file)
+};
+renderProjects();if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+
    ? [prompt,negative,handle_file(file),null,height,width,'image-to-video',duration,9,42,true,3.0,false,false]
    : [prompt,negative,null,null,height,width,'text-to-video',duration,9,42,true,3.0,false,false];
   showStatus('AI model वीडियो बना रहा है। GPU queue के कारण समय लग सकता है…','Generating');
