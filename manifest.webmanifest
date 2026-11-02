@@ -1,0 +1,9 @@
+{
+  "name": "VideoCraft AI",
+  "short_name": "VideoCraft",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0c1020",
+  "theme_color": "#101426",
+  "icons": []
+}

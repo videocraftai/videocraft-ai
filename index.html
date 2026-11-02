@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101426"><meta name="description" content="VideoCraft AI — create video projects">
+<link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="style.css">
+<title>VideoCraft AI</title>
+</head>
+<body>
+<header class="top"><div class="brand"><div class="logo">VC</div><div><b>VideoCraft AI</b><small>AI Video Studio</small></div></div><span class="pill">MOBILE STUDIO</span></header>
+<main>
+<section class="hero"><p class="eyebrow">CREATE • EDIT • EXPORT</p><h1>अपना अगला वीडियो<br><span>सोचो और बनाओ।</span></h1><p class="muted">Text या image से video project तैयार करो।</p></section>
+<nav class="tabs"><button class="tab active" data-tab="text">Text to Video</button><button class="tab" data-tab="image">Image to Video</button><button class="tab" data-tab="projects">My Projects</button></nav>
+<section id="text" class="panel">
+<label for="preset">Prompt idea चुनो</label>
+<select id="preset">
+<option value="">अपना prompt खुद लिखूँगा</option>
+<option value="kids">3D Kids Animation</option>
+<option value="cinematic">Cinematic Scene</option>
+<option value="product">Product Showcase</option>
+<option value="nature">Nature & Travel</option>
+</select>
+<label for="prompt">वीडियो का आइडिया लिखो</label><textarea id="prompt" rows="4" placeholder="उदाहरण: एक प्यारा सा गाँव, सुबह की सुनहरी धूप, cinematic camera movement..."></textarea>
+<label for="negativePrompt">क्या नहीं चाहिए? (Optional)</label><textarea id="negativePrompt" rows="2" placeholder="blurry, distorted face, extra fingers, flickering, text overlay..."></textarea>
+<div class="row"><div><label for="ratio">Aspect ratio</label><select id="ratio"><option>16:9</option><option>9:16</option><option>1:1</option></select></div><div><label for="duration">Duration</label><select id="duration"><option value="2">2 seconds</option><option value="5" selected>5 seconds</option><option value="8">8 seconds</option></select></div></div>
+<label for="style">Style</label><select id="style"><option>Cinematic realistic</option><option>3D animation</option><option>Anime</option><option>Kids cartoon</option><option>Product video</option></select>
+<button id="generateText" class="primary">वीडियो बनाओ <span>→</span></button>
+<button id="checkConnection" class="ghost" style="width:100%;margin-top:10px">GPU सर्वर कनेक्शन जाँचो</button>
+<p id="connectionStatus" class="muted small" aria-live="polite">सर्वर URL जोड़ने के बाद कनेक्शन जाँच सकते हो।</p>
+</section>
+<section id="image" class="panel hidden">
+<label for="imagePrompt">Image से video बनाने का prompt</label><textarea id="imagePrompt" rows="3" placeholder="Image में क्या movement चाहिए?"></textarea>
+<label for="imageNegativePrompt">क्या नहीं चाहिए? (Optional)</label><textarea id="imageNegativePrompt" rows="2" placeholder="blurry, flicker, distortion..."></textarea>
+<label class="upload"><input id="sourceImage" type="file" accept="image/*"><span>＋</span><b>अपनी image चुनो</b><small>JPG / PNG / WEBP</small></label>
+<div id="imageName" class="muted small"></div>
+<div class="row"><div><label for="imageRatio">Aspect ratio</label><select id="imageRatio"><option>16:9</option><option>9:16</option><option>1:1</option></select></div><div><label for="imageDuration">Duration</label><select id="imageDuration"><option value="2">2 seconds</option><option value="5" selected>5 seconds</option><option value="8">8 seconds</option></select></div></div>
+<button id="generateImage" class="primary">Image से video बनाओ <span>→</span></button>
+</section>
+<section id="projects" class="panel hidden"><div class="section-head"><div><h2>My Projects</h2><p class="muted">इस फोन के browser में सेव किए गए projects</p></div><button id="clearProjects" class="ghost">Clear</button></div><div id="projectList" class="projects"></div></section>
+<section id="result" class="result hidden"><div class="section-head"><h2>Generation status</h2><span id="status" class="pill">Preparing</span></div><p id="statusText" class="muted">Request तैयार हो रही है…</p><video id="outputVideo" controls playsinline class="hidden"></video><a id="download" class="primary link-button hidden" download="videocraft.mp4">MP4 डाउनलोड करो ↓</a></section>
+<section class="notice"><b>ध्यान दें</b><p>असली AI वीडियो बनाने के लिए backend में compatible GPU model endpoint जोड़ना होगा। Free GPU की availability और limits provider पर निर्भर हैं।</p></section>
+</main>
+<footer>VideoCraft AI <span>Made for creators</span></footer>
+<script src="config.js"></script><script src="app.js"></script>
+</body></html>
